@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Users</title>
+  <style>
+    :root{
+      --bg:#f7fafc;
+      --card:#ffffff;
+      --muted:#6b7280;
+      --accent:#0ea5a4;
+      --danger:#ef4444;
+      --shadow: 0 6px 18px rgba(15,23,42,0.06);
+      --radius:12px;
+      --maxwidth:1100px;
+    }
+    html,body{height:100%;margin:0;font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;padding:24px;background:var(--bg);color:#0f172a}
+    .container{max-width:var(--maxwidth);margin:0 auto}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{margin:0;font-size:1.25rem}
+    .search{display:flex;gap:8px;align-items:center}
+    input[type="search"]{padding:10px 12px;border-radius:10px;border:1px solid #e6e9ef;background:#fff;min-width:220px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+    .card{background:var(--card);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;display:flex;gap:12px;align-items:flex-start}
+    .avatar{width:72px;height:72px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid #eef2f7}
+    .avatar.small{width:48px;height:48px;border-radius:999px}
+    .info{flex:1;display:flex;flex-direction:column;gap:6px}
+    .row{display:flex;align-items:center;gap:8px;justify-content:space-between}
+    .username{font-weight:600;font-size:1rem}
+    .email{color:var(--muted);font-size:.9rem}
+    .meta{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .badge{font-size:0.8rem;padding:4px 8px;border-radius:999px;background:#f1f5f9;color:var(--muted)}
+    .status{display:inline-block;padding:6px 8px;border-radius:999px;font-weight:600;font-size:.8rem}
+    .online{background:#dcfce7;color:#065f46}
+    .offline{background:#fff7ed;color:#92400e}
+    .small-muted{color:var(--muted);font-size:0.85rem}
+    .center{display:flex;align-items:center;gap:8px}
+    .loader{padding:40px;text-align:center;color:var(--muted)}
+    footer{margin-top:18px;color:var(--muted);font-size:0.9rem;text-align:center}
+
+    /* lightbox */
+    .lightbox{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,0.6);z-index:999}
+    .lightbox.open{display:flex}
+    .lightbox img{max-width:92%;max-height:92%;border-radius:10px;box-shadow:0 12px 40px rgba(2,6,23,0.6)}
+    .close-btn{position:absolute;top:18px;right:18px;background:#fff;border-radius:8px;border:0;padding:8px;cursor:pointer;box-shadow:var(--shadow)}
+
+    @media (max-width:420px){
+      .card{padding:10px}
+      .avatar{width:56px;height:56px}
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Elenco utenti</h1>
+      <div class="search">
+        <input id="q" type="search" placeholder="Cerca username o email..." />
+        <button id="refresh">Aggiorna</button>
+      </div>
+    </header>
+
+    <main id="main">
+      <div id="loader" class="loader">Caricamento utenti…</div>
+      <div id="grid" class="grid" aria-live="polite"></div>
+      <div id="empty" style="display:none;padding:24px;text-align:center;color:var(--muted)">Nessun utente trovato.</div>
+    </main>
+
+    <footer>
+      Dati presi da <code>/users</code>. Click sull'avatar per ingrandire.
+    </footer>
+  </div>
+
+  <!-- lightbox -->
+  <div id="lightbox" class="lightbox" role="dialog" aria-hidden="true">
+    <button id="closeLb" class="close-btn" aria-label="Chiudi">✕</button>
+    <img id="lbImg" src="" alt="Avatar grande" />
+  </div>
+
+  <script>
+    // Helper: format date in Italian locale
+    const fmtDate = (iso) => {
+      try {
+        const d = new Date(iso)
+        return d.toLocaleString('it-IT', { dateStyle: 'medium', timeStyle: 'short' })
+      } catch (e) { return iso }
+    }
+
+    // Fallback avatar (data URL small gray)
+    const placeholder = 'data:image/svg+xml;utf8,' + encodeURIComponent(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400"><rect width="100%" height="100%" fill="#e6eef0"/><text x="50%" y="50%" font-family="Arial" font-size="36" fill="#9aa7ad" dominant-baseline="middle" text-anchor="middle">No image</text></svg>'
+    )
+
+    // Render one card
+    function renderCard(user) {
+      const card = document.createElement('article')
+      card.className = 'card'
+
+      const img = document.createElement('img')
+      img.className = 'avatar'
+      img.loading = 'lazy'
+      img.decoding = 'async'
+      img.alt = user.username + ' avatar'
+      img.src = user.avatar || placeholder
+      img.onerror = () => { img.src = placeholder }
+
+      // click to open lightbox
+      img.addEventListener('click', () => {
+        openLightbox(user.avatar || placeholder, user.username)
+      })
+
+      const info = document.createElement('div')
+      info.className = 'info'
+
+      const topRow = document.createElement('div')
+      topRow.className = 'row'
+      const left = document.createElement('div')
+      left.innerHTML = '<div class="username">' + escapeHtml(user.username) + '</div>' +
+                       '<div class="email">' + escapeHtml(user.email) + '</div>'
+      const right = document.createElement('div')
+      const status = document.createElement('div')
+      status.className = 'status ' + (user.is_online ? 'online' : 'offline')
+      status.textContent = user.is_online ? 'Online' : 'Offline'
+      right.appendChild(status)
+      topRow.appendChild(left)
+      topRow.appendChild(right)
+
+      const meta = document.createElement('div')
+      meta.className = 'meta'
+      meta.innerHTML =
+        '<div class="badge">won: ' + Number(user.won_matches || user.won_matches === 0 ? user.won_matches : 0) + '</div>' +
+        '<div class="badge">lost: ' + Number(user.lost_matches || user.lost_matches === 0 ? user.lost_matches : 0) + '</div>' +
+        '<div class="small-muted">id: ' + user.id + '</div>'
+
+      const created = document.createElement('div')
+      created.className = 'small-muted'
+      created.textContent = 'Creato: ' + fmtDate(user.createdAt)
+
+      info.appendChild(topRow)
+      info.appendChild(meta)
+      info.appendChild(created)
+
+      card.appendChild(img)
+      card.appendChild(info)
+
+      return card
+    }
+
+    // Escape to prevent XSS
+    function escapeHtml(s) {
+      if (s == null) return ''
+      return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+    }
+
+    // Lightbox
+    const lb = document.getElementById('lightbox')
+    const lbImg = document.getElementById('lbImg')
+    document.getElementById('closeLb').addEventListener('click', closeLightbox)
+    lb.addEventListener('click', (e) => { if (e.target === lb) closeLightbox() })
+    function openLightbox(src, alt) {
+      lbImg.src = src || placeholder
+      lbImg.alt = alt || 'avatar'
+      lb.classList.add('open')
+      lb.setAttribute('aria-hidden','false')
+    }
+    function closeLightbox() {
+      lb.classList.remove('open')
+      lbImg.src = ''
+      lb.setAttribute('aria-hidden','true')
+    }
+
+    // Main fetch + render logic
+    async function loadUsers(q = '') {
+      const loader = document.getElementById('loader')
+      const grid = document.getElementById('grid')
+      const empty = document.getElementById('empty')
+      loader.style.display = 'block'
+      grid.innerHTML = ''
+      empty.style.display = 'none'
+      try {
+        const res = await fetch('/users/users', { headers: { 'Accept': 'application/json' } })
+        if (!res.ok) throw new Error('HTTP ' + res.status)
+        const users = await res.json()
+
+        // optional filtering
+        const filtered = (Array.isArray(users) ? users : []).filter(u => {
+          if (!q) return true
+          const term = q.toLowerCase()
+          return String(u.username).toLowerCase().includes(term) || String(u.email).toLowerCase().includes(term)
+        })
+
+        if (filtered.length === 0) {
+          empty.style.display = 'block'
+        } else {
+          for (const u of filtered) grid.appendChild(renderCard(u))
+        }
+      } catch (err) {
+        grid.innerHTML = '<div style="padding:24px;color:var(--danger)">Errore caricamento utenti: ' + escapeHtml(err.message) + '</div>'
+        console.error('Error loading /users', err)
+      } finally {
+        loader.style.display = 'none'
+      }
+    }
+
+    // wire up search + refresh
+    const qInput = document.getElementById('q')
+    const refreshBtn = document.getElementById('refresh')
+    let lastQ = ''
+    qInput.addEventListener('input', () => {
+      const v = qInput.value.trim()
+      if (v === lastQ) return
+      lastQ = v
+      loadUsers(v)
+    })
+    refreshBtn.addEventListener('click', () => loadUsers(qInput.value.trim()))
+
+    // initial load
+    document.addEventListener('DOMContentLoaded', () => loadUsers())
+  </script>
+</body>
+</html>
