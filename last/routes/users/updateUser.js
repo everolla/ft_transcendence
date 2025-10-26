@@ -4,7 +4,7 @@ import fs from 'fs'
 
 export default async function (fastify) {
 fastify.patch('/users/user/:id', { preHandler: authenticateToken }, async (req, reply) => {
-    const token = req.headers['authorization']?.split(' ')[1]
+    const token = request.headers['authorization']?.split(' ')[1]
     if (!token) return reply.code(401).send({ error: 'No token provided' })
     let decoded
     try {
@@ -51,5 +51,3 @@ fastify.patch('/users/user/:id', { preHandler: authenticateToken }, async (req, 
     reply.send(user)
     })
 }
-
-    // --- REGISTER ---

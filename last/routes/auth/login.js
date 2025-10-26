@@ -43,8 +43,12 @@ export default async function (fastify) {
         text: `Your OTP is: ${OTP}`
       })
 
+      await fastify.models.OTP.create({
+        user_id: user.id,
+        otp_code: OTP
+      })
+
       return reply.status(200).send({
-        otp: OTP,
         user: { email: user.email },
         message: 'Login successful'
       })

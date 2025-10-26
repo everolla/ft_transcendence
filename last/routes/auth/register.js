@@ -197,7 +197,7 @@ export default async function (fastify) {
       })
 
       console.log('[register] user created successfully')
-      return reply.code(201).send({ User: { email: newUser.email}, OTP: OTP, message: 'User registered successfully'})
+      return reply.code(201).send({ User: { email: newUser.email}, message: 'User registered successfully'})
     } catch (err) {
       console.error('[register] unexpected error:', err)
       return reply.code(500).send({ error: 'Internal server error' })

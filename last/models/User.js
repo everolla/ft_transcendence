@@ -51,8 +51,7 @@ export default (sequelize, DataTypes) => {
       otherKey: 'friend_id'
     })
 
-    User.hasMany(models.MatchHistory, { as: 'wonMatches', foreignKey: 'winner_id' })
-    User.hasMany(models.MatchHistory, { as: 'lostMatches', foreignKey: 'loser_id' })
+  User.hasMany(models.MatchHistory, { as: 'matches', foreignKey: 'player_id' })
     
   }
 

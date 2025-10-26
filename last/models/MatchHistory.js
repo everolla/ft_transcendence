@@ -1,11 +1,11 @@
 export default (sequelize, DataTypes) => {
   const MatchHistory = sequelize.define('MatchHistory', {
-    winner_id: {
+    player_id: {
       type: DataTypes.INTEGER,
       allowNull: false
     },
-    loser_id: {
-      type: DataTypes.INTEGER,
+    opponent_name: {
+      type: DataTypes.STRING,
       allowNull: false
     },
     played_at: {
@@ -13,12 +13,12 @@ export default (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: DataTypes.NOW
     },
-    score_winner: {
+    player_score: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0
     },
-    score_loser: {
+    opponent_score: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 0
@@ -27,6 +27,10 @@ export default (sequelize, DataTypes) => {
   }, {
     tableName: 'match_histories'
   })
+
+  MatchHistory.associate = (models) => {
+    MatchHistory.belongsTo(models.User, { as: 'player', foreignKey: 'player_id' })
+  }
 
   return MatchHistory
 }
