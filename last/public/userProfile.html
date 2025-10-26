@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Profilo utente</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex items-center justify-center py-10">
+
+  <div class="w-full max-w-lg bg-white shadow-lg rounded-2xl p-8">
+    <h1 class="text-2xl font-bold mb-6 text-gray-800">Modifica profilo</h1>
+
+    <div id="message" class="hidden mb-4 p-3 rounded-md text-sm font-medium"></div>
+
+    <form id="profileForm" class="space-y-5">
+      <!-- Avatar -->
+      <div class="flex items-center gap-4">
+        <img id="avatarPreview" src="" alt="Avatar" class="w-20 h-20 rounded-full object-cover border" />
+        <label class="block">
+          <span class="text-gray-700 text-sm">Nuovo avatar</span>
+          <input id="avatarInput" type="file" accept="image/*" class="block text-sm mt-1" />
+        </label>
+      </div>
+
+      <!-- Username -->
+      <div>
+        <label class="block text-gray-700 text-sm mb-1">Username</label>
+        <input id="username" type="text" required class="w-full border rounded-md px-3 py-2 text-gray-800 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+      </div>
+
+      <!-- Email -->
+      <div>
+        <label class="block text-gray-700 text-sm mb-1">Email</label>
+        <input id="email" type="email" required class="w-full border rounded-md px-3 py-2 text-gray-800 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+      </div>
+
+      <!-- Password -->
+      <div>
+        <label class="block text-gray-700 text-sm mb-1">Nuova password</label>
+        <input id="password" type="password" placeholder="Lascia vuoto per non cambiarla" class="w-full border rounded-md px-3 py-2 text-gray-800 focus:ring-2 focus:ring-teal-500 focus:outline-none" />
+      </div>
+
+      <button id="saveBtn" type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-semibold py-2 rounded-md transition disabled:opacity-50">
+        Salva modifiche
+      </button>
+    </form>
+  </div>
+
+  <script>
+    const userId = 1 // puoi sostituire con un valore dinamico (URL param)
+    const apiUrl = `/users/user/${userId}`
+    const accessToken = localStorage.getItem('accessToken')
+
+    const form = document.getElementById('profileForm')
+    const avatarInput = document.getElementById('avatarInput')
+    const avatarPreview = document.getElementById('avatarPreview')
+    const usernameInput = document.getElementById('username')
+    const emailInput = document.getElementById('email')
+    const passwordInput = document.getElementById('password')
+    const messageBox = document.getElementById('message')
+    const saveBtn = document.getElementById('saveBtn')
+
+    // Load user data
+    async function loadUser() {
+      try {
+        const res = await fetch(apiUrl, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        })
+        if (!res.ok) throw new Error('Impossibile caricare l’utente.')
+        const user = await res.json()
+
+        usernameInput.value = user.username
+        emailInput.value = user.email
+        avatarPreview.src = `http://localhost:3000${user.avatar}`
+      } catch (err) {
+        showMessage(err.message, 'error')
+      }
+    }
+
+    // Show message
+    function showMessage(text, type) {
+      messageBox.textContent = text
+      messageBox.className = `mb-4 p-3 rounded-md text-sm font-medium ${type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`
+      messageBox.classList.remove('hidden')
+    }
+
+    // Preview avatar
+    avatarInput.addEventListener('change', (e) => {
+      const file = e.target.files[0]
+      if (file) avatarPreview.src = URL.createObjectURL(file)
+    })
+
+    // Submit form
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      saveBtn.disabled = true
+      showMessage('Salvataggio in corso…', 'success')
+
+      const formData = new FormData()
+      formData.append('username', usernameInput.value)
+      formData.append('email', emailInput.value)
+      if (passwordInput.value.trim()) formData.append('password', passwordInput.value)
+      if (avatarInput.files[0]) formData.append('avatar', avatarInput.files[0])
+
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'PATCH',
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+          body: formData
+        })
+        if (!res.ok) throw new Error('Errore durante l’aggiornamento.')
+        await res.json()
+        showMessage('Profilo aggiornato con successo ✅', 'success')
+        passwordInput.value = ''
+      } catch (err) {
+        showMessage(err.message, 'error')
+      } finally {
+        saveBtn.disabled = false
+      }
+    })
+
+    loadUser()
+  </script>
+</body>
+</html>
